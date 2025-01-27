@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from PIL import Image
+from PIL import Image, ImageColor
 import os
 
 app = Flask(__name__)
@@ -13,11 +13,20 @@ def home():
 @app.route('/generate', methods=['GET'])
 def generate_palette():
     # Get the list of color codes from the query parameter
-    hex_codes = request.args.get('colors', '').split(',')
+    colors_param = request.args.get('colors', '').strip()
+
+    # Log the received colors query for debugging purposes
+    print(f"Received colors query: {colors_param}")
+
+    # Ensure there are color values provided
+    if not colors_param:
+        return jsonify({'error': 'No colors provided. Please provide a comma-separated list of hex colors.'}), 400
     
-    # Ensure the 'colors' query parameter is not empty or contains invalid colors
+    # Split the colors and URL-decode if necessary
+    hex_codes = colors_param.split(',')
+
     if not hex_codes or '' in hex_codes:
-        return jsonify({'error': 'No colors provided or invalid colors. Please provide a comma-separated list of hex colors.'}), 400
+        return jsonify({'error': 'Invalid colors format. Please provide a valid comma-separated list of hex colors.'}), 400
 
     try:
         # Create a new image to store the color palette
@@ -28,7 +37,7 @@ def generate_palette():
         # Add each color to the image
         for i, color in enumerate(hex_codes):
             try:
-                # Use the hex color directly (no need for conversion)
+                # Get RGB from hex code directly
                 rgb_color = ImageColor.getrgb(color.strip())  # Convert hex to RGB
                 palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
             except ValueError:
