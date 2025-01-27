@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from PIL import Image, ImageColor
+from PIL import Image
 import os
 
 app = Flask(__name__)
@@ -28,7 +28,8 @@ def generate_palette():
         # Add each color to the image
         for i, color in enumerate(hex_codes):
             try:
-                rgb_color = ImageColor.getrgb(color.strip())  # Get RGB from hex code
+                # Use the hex color directly (no need for conversion)
+                rgb_color = ImageColor.getrgb(color.strip())  # Convert hex to RGB
                 palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
             except ValueError:
                 # If a color is invalid, return an error message for that specific color
