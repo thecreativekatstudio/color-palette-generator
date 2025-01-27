@@ -1,41 +1,48 @@
-import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from PIL import Image, ImageColor
+import os
 
 app = Flask(__name__)
 
+# Default route to check if the app is running
 @app.route('/')
 def home():
     return 'Color Palette Generator is running!'
 
+# Route to generate color palette
 @app.route('/generate', methods=['GET'])
 def generate_palette():
     # Get the list of color codes from the query parameter
     hex_codes = request.args.get('colors', '').split(',')
+    
+    # Ensure the 'colors' query parameter is not empty or contains invalid colors
+    if not hex_codes or '' in hex_codes:
+        return jsonify({'error': 'No colors provided or invalid colors. Please provide a comma-separated list of hex colors.'}), 400
+
     try:
-        # Generate a simple palette image
-        width = len(hex_codes) * 100
-        height = 100
-        palette = Image.new('RGB', (width, height))
+        # Create a new image to store the color palette
+        palette_width = len(hex_codes) * 100  # 100px for each color
+        palette_height = 100  # Height of the image
+        palette_image = Image.new('RGB', (palette_width, palette_height))
 
+        # Add each color to the image
         for i, color in enumerate(hex_codes):
-            # Convert hex to RGB
-            rgb = ImageColor.getrgb(color)
-            for x in range(i * 100, (i + 1) * 100):
-                for y in range(height):
-                    palette.putpixel((x, y), rgb)
+            try:
+                rgb_color = ImageColor.getrgb(color.strip())  # Get RGB from hex code
+                palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
+            except ValueError:
+                # If a color is invalid, return an error message for that specific color
+                return jsonify({'error': f'Invalid color specifier: {color}'}), 400
 
-        # Save the image to a byte stream to serve
-        from io import BytesIO
-        img_byte_arr = BytesIO()
-        palette.save(img_byte_arr, format='PNG')
-        img_byte_arr.seek(0)
-
-        return send_file(img_byte_arr, mimetype='image/png')
+        # Save the image to a temporary file and return it
+        palette_image.save('/tmp/palette.png')
+        return send_file('/tmp/palette.png', mimetype='image/png')
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # Get PORT from Heroku's environment variable or use 5000 locally
-    app.run(host='0.0.0.0', port=port)  # Bind to all IP addresses on the given port
+    # Get PORT from Heroku's environment variable or use 5000 locally
+    port = int(os.environ.get('PORT', 5000))
+    # Run the Flask app with the correct host and port
+    app.run(host='0.0.0.0', port=port)
