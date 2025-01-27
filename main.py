@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, send_file
-from PIL import Image, ImageColor
+from PIL import Image, ImageDraw, ImageFont
 import os
 import urllib.parse
+import io
 
 app = Flask(__name__)
 
@@ -20,10 +21,10 @@ def generate_palette():
     # Ensure the 'colors' query parameter is not empty or contains invalid colors
     if not colors_param:
         return jsonify({'error': 'No colors provided. Please provide a comma-separated list of hex colors.'}), 400
-    
+
     # URL-decode the colors parameter in case it contains encoded characters
     colors_param = urllib.parse.unquote(colors_param)
-    
+
     # Split the colors into a list
     hex_codes = colors_param.split(',')
 
@@ -33,23 +34,43 @@ def generate_palette():
 
     try:
         # Create a new image to store the color palette
-        palette_width = len(hex_codes) * 100  # 100px for each color
-        palette_height = 100  # Height of the image
-        palette_image = Image.new('RGB', (palette_width, palette_height))
+        num_colors = len(hex_codes)
+        palette_width = num_colors * 100  # 100px for each color
+        palette_height = 150  # Height increased to fit text
+        palette_image = Image.new('RGB', (palette_width, palette_height), "white")
+        draw = ImageDraw.Draw(palette_image)
+
+        # Load a font
+        try:
+            font = ImageFont.truetype("arial.ttf", size=20)
+        except:
+            font = ImageFont.load_default()
 
         # Add each color to the image
         for i, color in enumerate(hex_codes):
             try:
-                # Get RGB from hex code directly (no need for conversion)
-                rgb_color = ImageColor.getrgb(color.strip())  # Get RGB from hex code
-                palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
+                # Get RGB from hex code
+                rgb_color = ImageColor.getrgb(color.strip())
+                x0, y0 = i * 100, 0  # Top-left corner of the rectangle
+                x1, y1 = (i + 1) * 100, 100  # Bottom-right corner of the rectangle
+
+                # Draw the color block
+                draw.rectangle([x0, y0, x1, y1], fill=rgb_color)
+
+                # Draw the hex code below the color block
+                text_width, text_height = draw.textsize(color, font=font)
+                text_x = x0 + (100 - text_width) // 2  # Center the text
+                text_y = y1 + 10  # Place text 10px below the color block
+                draw.text((text_x, text_y), color, fill="black", font=font)
             except ValueError:
                 # If a color is invalid, return an error message for that specific color
                 return jsonify({'error': f'Invalid color specifier: {color}'}), 400
 
-        # Save the image to a temporary file and return it
-        palette_image.save('/tmp/palette.png')
-        return send_file('/tmp/palette.png', mimetype='image/png')
+        # Save the image to a BytesIO object instead of a file
+        img_io = io.BytesIO()
+        palette_image.save(img_io, 'PNG')
+        img_io.seek(0)
+        return send_file(img_io, mimetype='image/png')
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
