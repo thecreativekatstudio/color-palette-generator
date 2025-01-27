@@ -1,9 +1,51 @@
-from flask import Flask, request, jsonify, send_file
-from PIL import Image, ImageColor
-import os
-import urllib.parse
+from flask import Flask, request, jsonify
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 app = Flask(__name__)
+
+def generate_color_palette(colors):
+    # Ensure we have a valid list of colors
+    color_list = colors.split(',')
+
+    # Image size
+    width = 1000
+    height = 360
+    num_colors = len(color_list)
+    swatch_width = width // num_colors
+    swatch_height = height
+
+    # Create a new image with white background
+    img = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(img)
+
+    # Set up font for hex codes
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+    except IOError:
+        font = ImageFont.load_default()
+
+    for i, color in enumerate(color_list):
+        # Draw the color swatch
+        hex_color = color.strip()  # Remove any extra spaces
+        try:
+            color_rgb = ImageColor.getrgb(hex_color)
+        except ValueError:
+            color_rgb = (255, 255, 255)  # Default to white if the color is invalid
+        draw.rectangle([i * swatch_width, 0, (i + 1) * swatch_width, swatch_height], fill=color_rgb)
+        
+        # Add hex code text below the swatch
+        text_width, text_height = draw.textsize(hex_color, font=font)
+        text_x = i * swatch_width + (swatch_width - text_width) / 2
+        text_y = swatch_height - text_height
+        draw.text((text_x, text_y), hex_color, fill="black", font=font)
+
+    # Return image
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+
+    return img_byte_arr
 
 @app.route('/')
 def home():
@@ -11,51 +53,16 @@ def home():
 
 @app.route('/generate', methods=['GET'])
 def generate_palette():
-    # Get the 'colors' query parameter and decode it if necessary
-    colors_param = request.args.get('colors', '').strip()
-
-    # Log the received colors query for debugging purposes
-    print(f"Received colors query: {colors_param}")
-
-    # Ensure the 'colors' query parameter is not empty or contains invalid colors
-    if not colors_param:
-        return jsonify({'error': 'No colors provided. Please provide a comma-separated list of hex colors.'}), 400
+    # Get the list of color codes from the query parameter
+    colors = request.args.get('colors', '')
     
-    # URL-decode the colors parameter in case it contains encoded characters
-    colors_param = urllib.parse.unquote(colors_param)
-    
-    # Split the colors into a list
-    hex_codes = colors_param.split(',')
+    if not colors:
+        return jsonify({"error": "No colors provided or invalid colors. Please provide a comma-separated list of hex colors."})
 
-    # Ensure no empty color values exist
-    if '' in hex_codes:
-        return jsonify({'error': 'Invalid colors format. Please provide valid comma-separated hex colors.'}), 400
+    # Generate the palette image
+    img_byte_arr = generate_color_palette(colors)
 
-    try:
-        # Create a new image to store the color palette
-        palette_width = len(hex_codes) * 100  # 100px for each color
-        palette_height = 100  # Height of the image
-        palette_image = Image.new('RGB', (palette_width, palette_height))
-
-        # Add each color to the image
-        for i, color in enumerate(hex_codes):
-            try:
-                # Get RGB from hex code directly (no need for conversion)
-                rgb_color = ImageColor.getrgb(color.strip())  # Get RGB from hex code
-                palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
-            except ValueError:
-                # If a color is invalid, return an error message for that specific color
-                return jsonify({'error': f'Invalid color specifier: {color}'}), 400
-
-        # Save the image to a temporary file and return it
-        palette_image.save('/tmp/palette.png')
-        return send_file('/tmp/palette.png', mimetype='image/png')
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return send_file(img_byte_arr, mimetype='image/png')
 
 if __name__ == '__main__':
-    # Get PORT from Heroku's environment variable or use 5000 locally
-    port = int(os.environ.get('PORT', 5000))
-    # Run the Flask app with the correct host and port
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True, host="0.0.0.0", port=5000)
