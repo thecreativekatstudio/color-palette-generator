@@ -1,6 +1,5 @@
 from flask import Flask, request, send_file
-from PIL import Image, ImageDraw
-import os
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -12,33 +11,24 @@ def home():
 def generate_palette():
     # Get the list of color codes from the query parameter
     hex_codes = request.args.get('colors', '').split(',')
+    
+    # Ensure there are at least 2 colors (you can change this to suit your app)
+    if len(hex_codes) < 2:
+        return 'Please provide at least two color codes.'
 
-    if not hex_codes:
-        return "Please provide color codes in the 'colors' query parameter.", 400
+    # Create a simple image with each color in a stripe format
+    width = 100 * len(hex_codes)  # Each stripe will be 100px wide
+    height = 100  # Height of the image
+    img = Image.new('RGB', (width, height))
 
-    # Create a simple image with the color palette
-    width, height = 1000, 360
-    img = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(img)
-    column_width = width // len(hex_codes)
+    # Draw each stripe of color
+    for i, hex_code in enumerate(hex_codes):
+        img.paste(Image.new('RGB', (100, height), hex_code), (i * 100, 0))
 
-    # Draw each color as a vertical strip
-    for i, color in enumerate(hex_codes):
-        x1 = i * column_width
-        x2 = (i + 1) * column_width
-        draw.rectangle([x1, 0, x2, height], fill=color)
+    # Save the image and return a response
+    img.save('/tmp/palette.png')  # Save image temporarily (Heroku's /tmp folder is writable)
 
-    # Save the generated image to a temporary file
-    img_path = "/tmp/palette.png"
-    img.save(img_path)
+    return send_file('/tmp/palette.png', mimetype='image/png')
 
-    # Send the image as a response
-    return send_file(img_path, mimetype='image/png', as_attachment=True, download_name='palette.png')
-
-@app.route('/favicon.ico')
-def favicon():
-    return '', 204  # Return no content for favicon.ico
-
-if __name__ == "__main__":
-    # Run the app with the correct host and port for Heroku
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+if __name__ == '__main__':
+    app.run(debug=True)
