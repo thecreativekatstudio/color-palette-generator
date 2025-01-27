@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 import os
 import urllib.parse
 
