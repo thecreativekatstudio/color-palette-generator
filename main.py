@@ -1,32 +1,35 @@
 from flask import Flask, request, jsonify, send_file
 from PIL import Image, ImageColor
 import os
+import urllib.parse
 
 app = Flask(__name__)
 
-# Default route to check if the app is running
 @app.route('/')
 def home():
     return 'Color Palette Generator is running!'
 
-# Route to generate color palette
 @app.route('/generate', methods=['GET'])
 def generate_palette():
-    # Get the list of color codes from the query parameter
+    # Get the 'colors' query parameter and decode it if necessary
     colors_param = request.args.get('colors', '').strip()
 
     # Log the received colors query for debugging purposes
     print(f"Received colors query: {colors_param}")
 
-    # Ensure there are color values provided
+    # Ensure the 'colors' query parameter is not empty or contains invalid colors
     if not colors_param:
         return jsonify({'error': 'No colors provided. Please provide a comma-separated list of hex colors.'}), 400
     
-    # Split the colors and URL-decode if necessary
+    # URL-decode the colors parameter in case it contains encoded characters
+    colors_param = urllib.parse.unquote(colors_param)
+    
+    # Split the colors into a list
     hex_codes = colors_param.split(',')
 
-    if not hex_codes or '' in hex_codes:
-        return jsonify({'error': 'Invalid colors format. Please provide a valid comma-separated list of hex colors.'}), 400
+    # Ensure no empty color values exist
+    if '' in hex_codes:
+        return jsonify({'error': 'Invalid colors format. Please provide valid comma-separated hex colors.'}), 400
 
     try:
         # Create a new image to store the color palette
@@ -37,8 +40,8 @@ def generate_palette():
         # Add each color to the image
         for i, color in enumerate(hex_codes):
             try:
-                # Get RGB from hex code directly
-                rgb_color = ImageColor.getrgb(color.strip())  # Convert hex to RGB
+                # Get RGB from hex code directly (no need for conversion)
+                rgb_color = ImageColor.getrgb(color.strip())  # Get RGB from hex code
                 palette_image.paste(rgb_color, (i * 100, 0, (i + 1) * 100, palette_height))
             except ValueError:
                 # If a color is invalid, return an error message for that specific color
