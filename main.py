@@ -75,4 +75,19 @@ def generate_palette():
 
         # **Footer with smaller text and more spacing**
         footer_text = "The Creative Kat Studio - thecreativekatstudio.com"
-        footer_width, footer_height = draw.tex
+        footer_width, footer_height = draw.textbbox((0, 0), footer_text, font=footer_font)[2:]
+        draw.text(((palette_width - footer_width) // 2, palette_height - 25), footer_text, fill="black", font=footer_font)
+
+        # **Convert to bytes for serving as a file**
+        img_byte_arr = io.BytesIO()
+        palette_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+
+        return send_file(img_byte_arr, mimetype='image/png', as_attachment=True, download_name='palette.png')
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
