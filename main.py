@@ -30,7 +30,8 @@ def generate_palette():
     try:
         # **Set canvas size**
         palette_width = 1000  # Fixed width
-        palette_height = 300  # Fixed height
+        palette_height = 320  # Slightly taller for better spacing
+
         color_block_width = palette_width // len(hex_codes)  # Adjust block width dynamically
         color_block_height = 200  # Increased height for better visibility
 
@@ -61,18 +62,19 @@ def generate_palette():
                 x2, y2 = x1 + color_block_width, 50 + color_block_height
                 draw.rectangle([x1, y1, x2, y2], fill=rgb_color)
 
-                # **Hex code text below each color**
-                text_x = x1 + (color_block_width // 2) - 20
-                text_y = y2 + 5
+                # **Hex code text below each color, centered horizontally**
+                text_width, text_height = draw.textbbox((0, 0), hex_code.strip(), font=text_font)[2:]
+                text_x = x1 + (color_block_width - text_width) // 2
+                text_y = y2 + 10  # Increased spacing from color block
                 draw.text((text_x, text_y), hex_code.strip(), font=text_font, fill="black")
 
             except ValueError:
                 return jsonify({'error': f'Invalid color specifier: {hex_code}'}), 400
 
-        # **Footer with company name**
+        # **Footer with company name, moved slightly lower for better spacing**
         footer_text = "The Creative Kat Studio"
         footer_width, footer_height = draw.textbbox((0, 0), footer_text, font=text_font)[2:]
-        draw.text(((palette_width - footer_width) // 2, palette_height - 30), footer_text, fill="black", font=text_font)
+        draw.text(((palette_width - footer_width) // 2, palette_height - 35), footer_text, fill="black", font=text_font)
 
         # **Convert to bytes for serving as a file**
         img_byte_arr = io.BytesIO()
